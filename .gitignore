@@ -1,3 +1,9 @@
 MMenv/   
 pyproject.toml
+*.env
+# Ignore everything in data folder except .gitkeep
+data/*
+!data/**/.gitkeep
+
+
 
