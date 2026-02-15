@@ -4,6 +4,6 @@ pyproject.toml
 # Ignore everything in data folder except .gitkeep
 data/*
 !data/**/.gitkeep
-
-
-
+# Ignore everything in logs folder except .gitkeep
+logs/*
+!logs/**/.gitkeep
