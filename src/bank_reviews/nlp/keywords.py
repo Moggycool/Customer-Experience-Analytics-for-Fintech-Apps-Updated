@@ -1,10 +1,18 @@
+""" Keyword extraction using TF-IDF."""
 # src/bank_reviews/nlp/keywords.py
 from __future__ import annotations
+import sys
+from pathlib import Path
 
 import pandas as pd
 
-from bank_reviews.nlp.vectorize import TfidfConfig, fit_tfidf
-from bank_reviews.utils.text import normalize_text
+# Add project root (the folder that contains "src/") to sys.path
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+sys.path.append(str(PROJECT_ROOT))
+sys.path.append(str(PROJECT_ROOT / "src"))
+
+from bank_reviews.nlp.vectorize import TfidfConfig, fit_tfidf  # noqa: E402
+from bank_reviews.utils.text import normalize_text  # noqa: E402
 
 
 def top_keywords_by_bank(
@@ -15,6 +23,7 @@ def top_keywords_by_bank(
     cfg: TfidfConfig | None = None,
     top_k: int = 30,
 ) -> pd.DataFrame:
+    """Get top keywords by bank using TF-IDF."""
     cfg = cfg or TfidfConfig()
 
     rows: list[dict] = []

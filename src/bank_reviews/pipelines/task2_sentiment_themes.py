@@ -1,11 +1,15 @@
+"""Task 2 pipeline: sentiment and theme analysis."""
 # src/bank_reviews/pipelines/task2_sentiment_themes.py
 from __future__ import annotations
 import sys
 from pathlib import Path
+
+import argparse
 import pandas as pd
 
-# Add the project root to sys.path so that bank_reviews can be imported
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+# Add project root (the folder that contains "src/") to sys.path
+sys.path.append(str(Path(__file__).resolve().parents[3]))
 
 from src.bank_reviews.analysis.metrics import (
     sentiment_aggregates_by_bank,
@@ -65,3 +69,27 @@ def run_task2(
     # examples
     ex = sample_theme_examples(df, n_per_theme=3)
     ex.to_csv(out_examples_csv, index=False)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Main function to run the Task 2 pipeline."""
+    p = argparse.ArgumentParser()
+    p.add_argument("--in-csv", type=Path, required=True)
+    p.add_argument("--out-dir", type=Path,
+                   default=Path("data/outputs/task2"))
+    args = p.parse_args(argv)
+
+    out_dir: Path = args.out_dir
+    run_task2(
+        in_csv=args.in_csv,
+        out_reviews_csv=out_dir / "reviews_task2_scored.csv",
+        out_agg_bank_csv=out_dir / "task2_sentiment_by_bank.csv",
+        out_agg_bank_rating_csv=out_dir / "task2_sentiment_by_bank_rating.csv",
+        out_keywords_csv=out_dir / "task2_keywords_tfidf_by_bank.csv",
+        out_examples_csv=out_dir / "task2_theme_examples.csv",
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
