@@ -42,6 +42,7 @@ def run(project_root: str | Path = ".") -> None:
     ]:
         d.mkdir(parents=True, exist_ok=True)
 
+    print("App config:", asdict(app_cfg))
     print("Pipeline config:", asdict(pipe_cfg))
 
     # ---- Task 1: scrape + clean ----
@@ -56,7 +57,8 @@ def run(project_root: str | Path = ".") -> None:
     # ---- Task 2: sentiment + themes ----
     # enriched_path = paths.processed_dir / "reviews_enriched.csv"
     # df = pd.read_csv(clean_full_path)
-    # df = add_sentiment(df, neutral_margin=pipe_cfg.neutral_margin, batch_size=pipe_cfg.bert_batch_size)
+    # df = add_sentiment(df, neutral_margin=pipe_cfg.neutral_margin,
+    # batch_size=pipe_cfg.bert_batch_size)
     # df = add_themes(df)
     # df.to_csv(enriched_path, index=False)
 
