@@ -9,23 +9,24 @@ Task 1 responsibilities:
 
 from __future__ import annotations
 
-
 import sys
+import time
 from pathlib import Path
 from dataclasses import dataclass
+
+from typing import Optional
+
 import pandas as pd
-from typing import Any, Dict, Iterable, Optional
-from datetime import datetime
 
 
 # Enable running this file directly (e.g. `python src/bank_reviews/scraping/play_store.py`)
 # with the common `src/` project layout.
-_SRC_DIR = Path(__file__).resolve().parents[2]
-if str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
+if __package__ in (None, ""):
+    _SRC_DIR = Path(__file__).resolve().parents[2]
+    if str(_SRC_DIR) not in sys.path:
+        sys.path.insert(0, str(_SRC_DIR))
 
-# pylint: disable=import-error
-from bank_reviews.config import AppConfig  # noqa: F401
+from bank_reviews.config import AppConfig
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,83 @@ def scrape_app_reviews(
         - source (str)
         - app_id (str)
     """
-    ...
+    try:
+        from google_play_scraper import Sort, reviews  # type: ignore
+    except ModuleNotFoundError as e:  # pragma: no cover
+        raise ModuleNotFoundError(
+            "google-play-scraper is not installed. Install `google-play-scraper` to enable scraping."
+        ) from e
+
+    sort_key = sort.strip().upper()
+    sort_mode = Sort.NEWEST if sort_key == "NEWEST" else Sort.MOST_RELEVANT
+
+    all_rows: list[dict] = []
+    continuation_token = None
+
+    while len(all_rows) < n_target:
+        remaining = n_target - len(all_rows)
+        count = min(200, remaining)
+
+        last_error: Optional[BaseException] = None
+        for attempt in range(max_tries):
+            try:
+                kwargs = {
+                    "lang": lang,
+                    "country": country,
+                    "sort": sort_mode,
+                    "count": count,
+                }
+                if continuation_token is not None:
+                    kwargs["continuation_token"] = continuation_token
+
+                rows, continuation_token = reviews(app_id, **kwargs)
+                all_rows.extend(rows)
+                last_error = None
+                break
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                last_error = exc
+                if attempt < max_tries - 1:
+                    time.sleep(1.0 + attempt)
+                    continue
+
+        if last_error is not None:
+            raise RuntimeError(
+                f"Failed to scrape reviews for {bank} ({app_id}) after {max_tries} tries: {last_error}"
+            )
+
+        if continuation_token is None:
+            break
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
+
+    df = pd.DataFrame(all_rows)
+
+    # Normalize google-play-scraper field names -> project-friendly names
+    if not df.empty:
+        df = df.rename(
+            columns={
+                "reviewId": "review_id",
+                "content": "review",
+                "score": "rating",
+                "at": "date",
+            }
+        )
+
+    df["bank"] = bank
+    df["source"] = source
+    df["app_id"] = app_id
+
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(
+            df["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+    return ScrapeResult(
+        bank=bank,
+        app_id=app_id,
+        n_requested=n_target,
+        n_scraped=int(len(df)),
+        df=df,
+    )
 
 
 def scrape_all_banks(
@@ -99,7 +176,27 @@ def scrape_all_banks(
     Returns a concatenated raw dataframe (one row per review).
     Does NOT clean/deduplicate; cleaning is done in preprocessing module.
     """
-    ...
+    frames: list[pd.DataFrame] = []
+
+    for bank_code, app_id in app_cfg.app_ids.items():
+        res = scrape_app_reviews(
+            app_id=app_id,
+            bank=bank_code,
+            source=app_cfg.source_name,
+            lang=app_cfg.lang,
+            country=app_cfg.country,
+            n_target=n_target_per_bank,
+            sort=sort,
+        )
+        frames.append(res.df)
+
+    if not frames:
+        return pd.DataFrame(
+            columns=["review_id", "review", "rating",
+                     "date", "bank", "source", "app_id"]
+        )
+
+    return pd.concat(frames, ignore_index=True)
 
 
 def save_raw_reviews_csv(df: pd.DataFrame, out_csv: str) -> str:
@@ -108,4 +205,15 @@ def save_raw_reviews_csv(df: pd.DataFrame, out_csv: str) -> str:
 
     Keeps extra columns (review_id/app_id) useful for deduping and auditing.
     """
-    ...
+    out_path = Path(out_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out_path, index=False)
+    return str(out_path)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    from bank_reviews.config import default_app_config
+
+    cfg = default_app_config()
+    df_raw = scrape_all_banks(app_cfg=cfg, n_target_per_bank=10)
+    print(df_raw.head())
