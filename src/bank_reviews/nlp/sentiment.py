@@ -1,3 +1,4 @@
+""" Sentiment analysis using Hugging Face transformers."""
 # src/bank_reviews/nlp/sentiment.py
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ from bank_reviews.utils.text import normalize_text
 
 @dataclass(frozen=True)
 class SentimentConfig:
+    """Configuration for sentiment analysis."""
     model_name: str = "distilbert-base-uncased-finetuned-sst-2-english"
     neutral_margin: float = 0.15
     batch_size: int = 32
@@ -16,12 +18,14 @@ class SentimentConfig:
 
 
 def label_from_probs(p_pos: float, p_neg: float, neutral_margin: float) -> str:
+    """Determine sentiment label from positive and negative probabilities."""
     if abs(p_pos - p_neg) < neutral_margin:
         return "NEUTRAL"
     return "POSITIVE" if p_pos > p_neg else "NEGATIVE"
 
 
 def add_sentiment_columns(df: pd.DataFrame, cfg: SentimentConfig) -> pd.DataFrame:
+    """Add sentiment analysis columns to the DataFrame."""
     # Lazy import so CI can run without transformers/torch installed
     from transformers import pipeline
 
@@ -32,8 +36,8 @@ def add_sentiment_columns(df: pd.DataFrame, cfg: SentimentConfig) -> pd.DataFram
         "sentiment-analysis",
         model=cfg.model_name,
         device=cfg.device,
-        return_all_scores=True,
-    )
+        top_k=None,
+    )  # type: ignore
 
     texts = df["review"].astype(str).map(normalize_text).tolist()
 
