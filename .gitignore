@@ -7,3 +7,8 @@ data/*
 # Ignore everything in logs folder except .gitkeep
 logs/*
 !logs/**/.gitkeep
+# Ignore everything in models folder except .gitkeep
+models/*
+!models/**/.gitkeep
+__pycache__/
+*.pyc
