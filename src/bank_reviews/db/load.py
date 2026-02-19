@@ -181,12 +181,13 @@ def update_from_task2_scored_csv(
                     sentiment_label = u.sentiment_label,
                     theme_primary   = u.theme_primary
                 FROM (
-                    SELECT
-                        :review_hash::text AS review_hash,
-                        :sentiment_score::float8 AS sentiment_score,
-                        :sentiment_label::text AS sentiment_label,
-                        :theme_primary::text AS theme_primary
-                ) AS u
+                    VALUES (
+                        :review_hash,
+                        :sentiment_score,
+                        :sentiment_label,
+                        :theme_primary
+                    )
+                ) AS u (review_hash, sentiment_score, sentiment_label, theme_primary)
                 WHERE r.review_hash = u.review_hash;
             """),
             upd
@@ -197,12 +198,12 @@ def update_from_task2_scored_csv(
         missing_hashes = conn.execute(
             text("""
                 SELECT COUNT(*) FROM (
-                    SELECT :review_hash::text AS review_hash
-                ) u
+                    SELECT unnest(:hashes) AS review_hash
+                ) u 
                 LEFT JOIN reviews r ON r.review_hash = u.review_hash
                 WHERE r.review_hash IS NULL;
             """),
-            [{"review_hash": h} for h in df["review_hash"].tolist()]
+            [{"hashes": [h for h in df["review_hash"].tolist()]}]
         ).scalar_one()
 
         theme_links_inserted = 0
