@@ -12,3 +12,5 @@ models/*
 !models/**/.gitkeep
 __pycache__/
 *.pyc
+bank_reviews.egg-info/
+dist/
